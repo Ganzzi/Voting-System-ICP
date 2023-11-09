@@ -1,31 +1,112 @@
-type Error = variant { InsertFailed; VoteNotFoundError };
+type Error = variant { InsertFailed; VoteNotFoundError; InvalidInput };
 type Result = variant { Ok : Vote; Err : Error };
-type Result_1 = variant { Ok; Err : Error };
-type Result_2 = variant { Ok : vec record { text; nat64 }; Err : Error };
-type Result_3 = variant { Ok : vec text; Err : Error };
-type Result_4 = variant { Ok : nat64; Err : Error };
-type Result_5 = variant { Ok : text; Err : Error };
-type Result_6 = variant { Ok : vec Vote; Err : Error };
+
 type Vote = record {
   id : nat64;
   voter : text;
   timestamp : nat64;
   candidate : text;
 };
+
 service : {
   add_vote : (text, text) -> (Result);
-  clear_votes : () -> (Result_1);
+  clear_votes : () -> (Result);
   delete_vote : (nat64) -> (Result);
-  get_all_candidate_votes : () -> (Result_2) query;
-  get_candidates : () -> (Result_3) query;
-  get_latest_vote_timestamp : () -> (Result_4) query;
-  get_least_voted_candidate : () -> (Result_5) query;
-  get_most_voted_candidate : () -> (Result_5) query;
-  get_votes : () -> (Result_6) query;
-  get_votes_by_candidate : (text) -> (Result_6) query;
-  get_votes_by_voter : (text) -> (Result_6) query;
-  get_votes_in_time_range : (nat64, nat64) -> (Result_6) query;
-  get_votes_sorted_by_timestamp : () -> (Result_6) query;
-  total_votes : () -> (Result_4) query;
+  get_all_candidate_votes : () -> (Result) query;
+  get_candidates : () -> (Result) query;
+  get_latest_vote_timestamp : () -> (Result) query;
+  get_least_voted_candidate : () -> (Result) query;
+  get_most_voted_candidate : () -> (Result) query;
+  get_votes : () -> (Result) query;
+  get_votes_by_candidate : (text) -> (Result) query;
+  get_votes_by_voter : (text) -> (Result) query;
+  get_votes_in_time_range : (nat64, nat64) -> (Result) query;
+  get_votes_sorted_by_timestamp : () -> (Result) query;
+  total_votes : () -> (Result) query;
   update_vote : (nat64, text, text) -> (Result);
 }
+
+impl service {
+  // Add vote
+  add_vote(voter: text, candidate: text): Result {
+    if (voter.isEmpty() || candidate.isEmpty()) {
+      return Result.Err(Error.InvalidInput);
+    }
+
+    let vote_id = getNextVoteId();
+    let vote = Vote {
+      id: vote_id,
+      voter: voter,
+      timestamp: currentTimestamp(),
+      candidate: candidate,
+    };
+
+    if (!insertVote(vote)) {
+      return Result.Err(Error.InsertFailed);
+    }
+
+    return Result.Ok(vote);
+  }
+
+  // Clear all votes
+  clear_votes(): Result {
+    if (!clearVotes()) {
+      return Result.Err(Error.UnspecifiedError);
+    }
+
+    return Result.Ok();
+  }
+
+  // Delete specific vote
+  delete_vote(voteId: nat64): Result {
+    if (!deleteVote(voteId)) {
+      return Result.Err(Error.VoteNotFoundError);
+    }
+
+    return Result.Ok();
+  }
+
+  // Get all votes
+  get_votes(): Result {
+    let votes = getAllVotes();
+    return Result.Ok(votes);
+  }
+
+  // Get votes by candidate
+  get_votes_by_candidate(candidate: text): Result {
+    let votes = getVotesByCandidate(candidate);
+    return Result.Ok(votes);
+  }
+
+  // Get votes by voter
+  get_votes_by_voter(voter: text): Result {
+    let votes = getVotesByVoter(voter);
+    return Result.Ok(votes);
+  }
+
+  // Get votes in a specific time range
+  get_votes_in_time_range(fromTimestamp: nat64, toTimestamp: nat64): Result {
+    let votes = getVotesInTimeRange(fromTimestamp, toTimestamp);
+    return Result.Ok(votes);
+  }
+
+  // Get votes sorted by timestamp
+  get_votes_sorted_by_timestamp(): Result {
+    let votes = getVotesSortedByTimestamp();
+    return Result.Ok(votes);
+  }
+
+  // Get total number of votes
+  total_votes(): Result {
+    let total = getTotalVotes();
+    return Result.Ok(total);
+  }
+
+  // Update existing vote
+  update_vote(voteId: nat64, newVoter: text, newCandidate: text): Result {
+    if (!voteExists(voteId)) {
+      return Result.Err(Error.VoteNotFoundError);
+    }
+
+    if (newVoter.isEmpty() || newCandidate.isEmpty()) {
+      return Result.Err
